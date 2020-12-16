@@ -42,18 +42,14 @@ func part2(s [][]byte) {
 		ids = append(ids, pair{id, offset})
 	}
 
+	// Sort with descending ids
 	sort.Slice(ids, func(i, j int) bool {
-		return ids[j].id < ids[i].id
+		return ids[i].id > ids[j].id
 	})
 	candidate := ids[0].offset
 	step := ids[0].id
 	for _, id := range ids[1:] {
-		fmt.Println("candidate:", candidate, "step:", step)
-		fmt.Printf("Looking for %d mod %d\n", id.offset, id.id)
-		for {
-			if candidate%id.id == id.offset {
-				break
-			}
+		for candidate%id.id != id.offset {
 			candidate += step
 		}
 		step *= id.id
