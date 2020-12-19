@@ -104,7 +104,7 @@ func main() {
 	finalFields := make(map[int]string)
 	for len(finalFields) != len(candidates) {
 		for i, cans := range candidates {
-			if len(cans) > 1 || len(cans) == 0 {
+			if len(cans) != 1 {
 				continue
 			}
 			var final *field
