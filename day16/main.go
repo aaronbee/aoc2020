@@ -36,26 +36,89 @@ func main() {
 		root.insert(&node{f: &f, beg: f.b1, end: f.b2, max: f.b2})
 	}
 
-	// ignore your ticket
-	for s.Scan() {
-		if s.Text() == "nearby tickets:" {
-			break
+	var yourTicket []int
+	s.Scan()
+	if s.Text() != "your ticket:" {
+		panic("expected your ticket")
+	}
+	s.Scan()
+	for _, v := range strings.Split(s.Text(), ",") {
+		v, err := strconv.Atoi(v)
+		if err != nil {
+			panic(err)
 		}
+		yourTicket = append(yourTicket, v)
 	}
 
-	var errCount int
+	s.Scan() // empty line
+	if s.Text() != "" {
+		panic("expected empty")
+	}
+	s.Scan() // "nearby tickets:"
+	if s.Text() != "nearby tickets:" {
+		panic("expected nearby tickets")
+	}
+
+	candidates := make([][]*field, len(yourTicket))
+	for i, v := range yourTicket {
+		candidates[i] = root.fields(v)
+	}
+	for _, cans := range candidates {
+		for i, can := range cans {
+			if i != 0 {
+				fmt.Print(", ")
+			}
+			fmt.Printf("%q", can.label)
+		}
+		fmt.Println()
+	}
 	for s.Scan() {
+		fieldsByIndex := make([][]*field, 0, len(candidates))
 		for _, v := range strings.Split(s.Text(), ",") {
-			i, err := strconv.Atoi(v)
+			v, err := strconv.Atoi(v)
 			if err != nil {
 				panic(err)
 			}
-			if !root.present(i) {
-				errCount += i
+			fields := root.fields(v)
+			if len(fields) == 0 {
+				fieldsByIndex = nil
+				break
+			}
+			fieldsByIndex = append(fieldsByIndex, fields)
+		}
+		if fieldsByIndex == nil {
+			continue
+		}
+		for i, cans := range candidates {
+			for j, can := range cans {
+				if can == nil {
+					continue
+				}
+				var found bool
+				for _, f := range fieldsByIndex[i] {
+					if f == can {
+						found = true
+						break
+					}
+				}
+				if !found {
+					cans[j] = nil
+				}
 			}
 		}
 	}
-	fmt.Println(errCount)
+	finalFields := make([]string, len(candidates))
+	for i, cans := range candidates {
+		for _, can := range cans {
+			if can != nil {
+				if finalFields[i] != "" {
+					fmt.Printf("Multiple fields found for %d: %s %s\n", i, finalFields[i], can.label)
+				}
+				finalFields[i] = can.label
+			}
+		}
+	}
+	fmt.Println(finalFields)
 }
 
 type field struct {
@@ -108,4 +171,21 @@ func (n *node) present(i int) bool {
 		return true
 	}
 	return n.right.present(i)
+}
+
+func (n *node) fields(i int) []*field {
+	if n == nil {
+		return nil
+	}
+	if i > n.max {
+		return nil
+	}
+	if i < n.beg {
+		return n.left.fields(i)
+	}
+	fields := n.right.fields(i)
+	if i <= n.end {
+		return append(fields, n.f)
+	}
+	return fields
 }
