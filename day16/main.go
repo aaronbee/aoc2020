@@ -59,19 +59,16 @@ func main() {
 		panic("expected nearby tickets")
 	}
 
-	candidates := make([][]*field, len(yourTicket))
+	candidates := make([]map[*field]struct{}, len(yourTicket))
 	for i, v := range yourTicket {
-		candidates[i] = root.fields(v)
-	}
-	for _, cans := range candidates {
-		for i, can := range cans {
-			if i != 0 {
-				fmt.Print(", ")
-			}
-			fmt.Printf("%q", can.label)
+		fields := root.fields(v)
+		m := make(map[*field]struct{})
+		for _, f := range fields {
+			m[f] = struct{}{}
 		}
-		fmt.Println()
+		candidates[i] = m
 	}
+
 	for s.Scan() {
 		fieldsByIndex := make([][]*field, 0, len(candidates))
 		for _, v := range strings.Split(s.Text(), ",") {
@@ -90,10 +87,7 @@ func main() {
 			continue
 		}
 		for i, cans := range candidates {
-			for j, can := range cans {
-				if can == nil {
-					continue
-				}
+			for can := range cans {
 				var found bool
 				for _, f := range fieldsByIndex[i] {
 					if f == can {
@@ -102,23 +96,35 @@ func main() {
 					}
 				}
 				if !found {
-					cans[j] = nil
+					delete(cans, can)
 				}
 			}
 		}
 	}
-	finalFields := make([]string, len(candidates))
-	for i, cans := range candidates {
-		for _, can := range cans {
-			if can != nil {
-				if finalFields[i] != "" {
-					fmt.Printf("Multiple fields found for %d: %s %s\n", i, finalFields[i], can.label)
-				}
-				finalFields[i] = can.label
+	finalFields := make(map[int]string)
+	for len(finalFields) != len(candidates) {
+		for i, cans := range candidates {
+			if len(cans) > 1 || len(cans) == 0 {
+				continue
+			}
+			var final *field
+			for final = range cans {
+			}
+			finalFields[i] = final.label
+			for _, cans := range candidates {
+				delete(cans, final)
 			}
 		}
 	}
 	fmt.Println(finalFields)
+
+	result := 1
+	for i, label := range finalFields {
+		if strings.HasPrefix(label, "departure ") {
+			result *= yourTicket[i]
+		}
+	}
+	fmt.Println(result)
 }
 
 type field struct {
@@ -135,26 +141,26 @@ type node struct {
 	left, right *node
 }
 
-func (n *node) insert(nn *node) int {
+func (n *node) insert(nn *node) {
 	if nn.beg < n.beg {
 		if n.left == nil {
 			n.left = nn
-			return n.max
+		} else {
+			n.left.insert(nn)
 		}
-		n.left.insert(nn)
-		return n.max
+		if n.left.max > n.max {
+			n.max = n.left.max
+		}
+		return
 	}
-	var max int
 	if n.right == nil {
 		n.right = nn
-		max = nn.max
 	} else {
-		max = n.right.insert(nn)
+		n.right.insert(nn)
 	}
-	if max > n.max {
-		n.max = max
+	if n.right.max > n.max {
+		n.max = n.right.max
 	}
-	return n.max
 }
 
 func (n *node) present(i int) bool {
@@ -170,7 +176,7 @@ func (n *node) present(i int) bool {
 	if i <= n.end {
 		return true
 	}
-	return n.right.present(i)
+	return n.left.present(i) || n.right.present(i)
 }
 
 func (n *node) fields(i int) []*field {
@@ -183,7 +189,7 @@ func (n *node) fields(i int) []*field {
 	if i < n.beg {
 		return n.left.fields(i)
 	}
-	fields := n.right.fields(i)
+	fields := append(n.left.fields(i), n.right.fields(i)...)
 	if i <= n.end {
 		return append(fields, n.f)
 	}
