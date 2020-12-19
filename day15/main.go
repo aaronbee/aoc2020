@@ -22,7 +22,7 @@ func main() {
 		fmt.Println(turn, ":", i)
 		turn++
 	}
-	for ; turn <= 2020; turn++ {
+	for ; turn <= 30000000; turn++ {
 		var last int
 		if next > 0 {
 			last = turn - 1 - next
