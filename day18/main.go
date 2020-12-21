@@ -19,14 +19,80 @@ func main() {
 		s := strings.ReplaceAll(scn.Text(), "(", "( ")
 		s = strings.ReplaceAll(s, ")", " )")
 		tokens := strings.Fields(s)
-		v, i := eval(tokens)
-		if i != len(tokens) {
-			panic(fmt.Errorf("tokens not all consumed: Exp %d Got: %d", i, len(tokens)))
-		}
+		iter := tokenIter{tokens: tokens}
+		v := expression(&iter)
+		fmt.Println(scn.Text(), "=", v)
 		sum += v
 	}
 	fmt.Println("final sum", sum)
 }
+
+// part 2
+
+// recursive descent parser
+//
+// expression : factor { "*" factor }
+// factor : term { "+" term }
+// term : NUM
+//      | expression
+
+type tokenIter struct {
+	tokens []string
+	i      int
+}
+
+func (iter *tokenIter) accept(s string) bool {
+	if iter.i >= len(iter.tokens) {
+		return false
+	}
+	if s == iter.tokens[iter.i] {
+		iter.i++
+		return true
+	}
+	return false
+}
+
+func expect(b bool) {
+	if !b {
+		panic("unexpected")
+	}
+}
+
+func (iter *tokenIter) num() int {
+	i, err := strconv.Atoi(iter.tokens[iter.i])
+	if err != nil {
+		panic(err)
+	}
+	iter.i++
+	return i
+}
+
+func expression(iter *tokenIter) int {
+	val := factor(iter)
+	for iter.accept("*") {
+		val *= factor(iter)
+	}
+	return val
+}
+
+func factor(iter *tokenIter) int {
+	val := term(iter)
+	for iter.accept("+") {
+		val += term(iter)
+	}
+	return val
+}
+
+func term(iter *tokenIter) int {
+	if iter.accept("(") {
+		i := expression(iter)
+		expect(iter.accept(")"))
+		return i
+	}
+	return iter.num()
+}
+
+// part 1
 
 type state struct {
 	left int
