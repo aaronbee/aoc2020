@@ -46,11 +46,11 @@ func main() {
 	var count int
 outer:
 	for scn.Scan() {
-		iter := tokenIter{tokens: scn.Bytes()}
 		for i := 0; i < len(scn.Bytes()); i++ {
 			for j := 0; j < len(scn.Bytes()); j++ {
 				rules[8].(*loop).count = i
 				rules[11].(*loop).count = j
+				iter := tokenIter{tokens: scn.Bytes()}
 				if rules[0].match(rules, &iter) && iter.i == len(iter.tokens) {
 					count++
 					continue outer
@@ -103,10 +103,10 @@ type or []rule
 func (r or) match(rs []rule, iter *tokenIter) bool {
 	backup := iter.i
 	for _, r := range r {
+		iter.i = backup
 		if r.match(rs, iter) {
 			return true
 		}
-		iter.i = backup
 	}
 	return false
 }
