@@ -40,11 +40,22 @@ func main() {
 		rules[index] = r
 	}
 
+	rules[8] = &loop{a: seq{42}, b: seq{42, 8}}
+	rules[11] = &loop{a: seq{42, 31}, b: seq{42, 11, 31}}
+
 	var count int
+outer:
 	for scn.Scan() {
 		iter := tokenIter{tokens: scn.Bytes()}
-		if rules[0].match(rules, &iter) && iter.i == len(iter.tokens) {
-			count++
+		for i := 0; i < len(scn.Bytes()); i++ {
+			for j := 0; j < len(scn.Bytes()); j++ {
+				rules[8].(*loop).count = i
+				rules[11].(*loop).count = j
+				if rules[0].match(rules, &iter) && iter.i == len(iter.tokens) {
+					count++
+					continue outer
+				}
+			}
 		}
 	}
 	fmt.Println(count)
@@ -90,14 +101,28 @@ type rule interface {
 type or []rule
 
 func (r or) match(rs []rule, iter *tokenIter) bool {
+	backup := iter.i
 	for _, r := range r {
-		backup := iter.i
 		if r.match(rs, iter) {
 			return true
 		}
 		iter.i = backup
 	}
 	return false
+}
+
+type loop struct {
+	a     seq
+	b     seq
+	count int
+}
+
+func (r *loop) match(rs []rule, iter *tokenIter) bool {
+	if r.count == 0 {
+		return r.a.match(rs, iter)
+	}
+	r.count--
+	return r.b.match(rs, iter)
 }
 
 type seq []int
@@ -114,6 +139,9 @@ func (r seq) match(rs []rule, iter *tokenIter) bool {
 type byt byte
 
 func (r byt) match(rs []rule, iter *tokenIter) bool {
+	if iter.i >= len(iter.tokens) {
+		return false
+	}
 	if iter.tokens[iter.i] == byte(r) {
 		iter.i++
 		return true
