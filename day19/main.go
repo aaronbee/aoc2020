@@ -40,19 +40,37 @@ func main() {
 		rules[index] = r
 	}
 
-	rules[8] = &loop{a: seq{42}, b: seq{42, 8}}
-	rules[11] = &loop{a: seq{42, 31}, b: seq{42, 11, 31}}
+	// Part 2:
+	//
+	// 8: 42 | 42 8
+	// 11: 42 31 | 42 11 31
+	//
+	// 0: 8 11
+	//
+	// This sequence is rule 42 at least twice followed by rule
+	// 31 at least once and 31 can execute at most 1 fewer than 42
 
 	var count int
 outer:
 	for scn.Scan() {
-		for i := 0; i < len(scn.Bytes()); i++ {
-			for j := 0; j < len(scn.Bytes()); j++ {
-				rules[8].(*loop).count = i
-				rules[11].(*loop).count = j
-				iter := tokenIter{tokens: scn.Bytes()}
-				if rules[0].match(rules, &iter) && iter.i == len(iter.tokens) {
+		// Attempt different counts of rule 42 applied
+		for i := 2; i < len(scn.Bytes()); i++ {
+			iter := tokenIter{tokens: scn.Bytes()}
+			for ii := i; ii > 0; ii-- {
+				if !rules[42].match(rules, &iter) {
+					continue outer
+				}
+			}
+			// Run rule 32 until we don't match, all tokens have been
+			// consumed (match!), or it has run too many times.
+			var r31Count int
+			for rules[31].match(rules, &iter) {
+				r31Count++
+				if iter.i == len(iter.tokens) {
 					count++
+					continue outer
+				}
+				if r31Count == i-1 {
 					continue outer
 				}
 			}
@@ -109,20 +127,6 @@ func (r or) match(rs []rule, iter *tokenIter) bool {
 		}
 	}
 	return false
-}
-
-type loop struct {
-	a     seq
-	b     seq
-	count int
-}
-
-func (r *loop) match(rs []rule, iter *tokenIter) bool {
-	if r.count == 0 {
-		return r.a.match(rs, iter)
-	}
-	r.count--
-	return r.b.match(rs, iter)
 }
 
 type seq []int
