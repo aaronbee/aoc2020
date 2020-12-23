@@ -2,8 +2,11 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"math"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -30,16 +33,50 @@ func main() {
 		m.insert(&t)
 	}
 
-	result := 1
-	var count int
+	var corner *tile
 	for _, t := range tiles {
 		neighs := m.sidesWithNeighbors(t)
-		if neighs == 2 {
-			count++
-			result *= t.id
+		if len(neighs) != 2 {
+			continue
+		}
+		corner = t
+		if neighs[0] == 0 && neighs[1] == 1 {
+			t.rotation = 1
+		} else if neighs[0] == 1 && neighs[1] == 2 {
+		} else if neighs[0] == 2 && neighs[1] == 3 {
+			t.rotation = 3
+		} else if neighs[0] == 0 && neighs[1] == 3 {
+			t.rotation = 2
+		} else {
+			panic("huh")
+		}
+		break
+	}
+	sideLength := int(math.Sqrt(float64(len(tiles))))
+	fmt.Println("tiles", len(tiles), "sideLength", sideLength)
+	arranged := make([][]*tile, sideLength)
+	for i := range arranged {
+		fmt.Printf("placing %d,%d\n", 0, i)
+		arranged[i] = make([]*tile, sideLength)
+		row := arranged[i]
+		if i == 0 {
+			row[0] = corner
+		} else {
+			above := arranged[i-1][0]
+			row[0] = m.getWithSide(above.sides()[2], 0)
+		}
+		fmt.Println("Placed")
+		fmt.Println(row[0])
+		m.remove(row[0])
+		for j := range row[1:] {
+			fmt.Printf("placing %d,%d\n", j+1, i)
+			row[j+1] = m.getWithSide(row[j].sides()[1], 3)
+			m.remove(row[j+1])
+			fmt.Println("Placed")
+			fmt.Println(row[j+1])
 		}
 	}
-	fmt.Printf("Found %d candidate tiles. Multiplied: %d\n", count, result)
+	fmt.Println("Placed all tiles:", len(m))
 }
 
 type tilesBySide map[string][]*tile
@@ -51,43 +88,120 @@ func (m tilesBySide) insert(t *tile) {
 	}
 }
 
-func (m tilesBySide) sidesWithNeighbors(t *tile) int {
-	var count int
-outer:
+func (m tilesBySide) remove(t *tile) {
 	for _, sd := range t.sides() {
+		slc := m[string(sd)]
+		orig := len(slc)
+		for i, tt := range slc {
+			if t == tt {
+				slc[i] = slc[len(slc)-1]
+				slc = slc[:len(slc)-1]
+				break
+			}
+		}
+		if len(slc) == orig {
+			panic("remove didn't remove anything")
+		}
+		if len(slc) == 0 {
+			delete(m, string(sd))
+		} else {
+			m[string(sd)] = slc
+		}
+	}
+}
+
+func (m tilesBySide) getWithSide(sd []byte, side int) *tile {
+	cand1 := m[string(sd)]
+	flip(sd)
+	cand2 := m[string(sd)]
+	if len(cand1)+len(cand2) == 0 {
+		panic("tile not found")
+	}
+	var t *tile
+	if len(cand1) == 1 {
+		t = cand1[0]
+		flip(sd)
+	} else if len(cand2) == 1 {
+		t = cand2[0]
+		t.flip = true
+	} else {
+		fmt.Printf("candidates for %s\n", string(sd))
+		fmt.Println("orig")
+		for _, t := range cand1 {
+			fmt.Println(t)
+		}
+		fmt.Println("flipped")
+		for _, t := range cand1 {
+			fmt.Println(t)
+		}
+		panic("too many tiles")
+	}
+
+	for i, sid := range t.sides() {
+		if bytes.Equal(sd, sid) {
+			t.rotation = side - i
+			return t
+		}
+	}
+	fmt.Println("looking for", string(sd))
+	for _, sd := range t.sides() {
+		fmt.Println(string(sd))
+	}
+	panic("didn't find matching side")
+}
+
+func (m tilesBySide) sidesWithNeighbors(t *tile) []int {
+	var result []int
+outer:
+	for i, sd := range t.sides() {
 		for _, neighbor := range m[string(sd)] {
 			if neighbor != t {
-				count++
+				result = append(result, i)
 				continue outer
 			}
 		}
 		flip(sd)
 		for _, neighbor := range m[string(sd)] {
 			if neighbor != t {
-				count++
+				result = append(result, i)
 				break
 			}
 		}
 	}
-	return count
+	return result
 }
 
 type tile struct {
 	id       int
 	contents [][]byte
+	rotation int
+	flip     bool
+}
+
+func (t *tile) String() string {
+	var buf strings.Builder
+	fmt.Fprintf(&buf, "Tile %d:\n", t.id)
+	for _, row := range t.contents {
+		buf.Write(row)
+		buf.WriteByte('\n')
+	}
+	return buf.String()
 }
 
 func (t *tile) sides() [][]byte {
+	rotate := func(i int) int {
+		return (i + t.rotation + 4) % 4
+	}
 	result := make([][]byte, 4)
-	result[0] = append([]byte(nil), t.contents[0]...)
-	result[2] = append([]byte(nil), t.contents[len(t.contents)-1]...)
+	result[rotate(0)] = append([]byte(nil), t.contents[0]...)
+	result[rotate(2)] = append([]byte(nil), t.contents[len(t.contents)-1]...)
 
-	result[1] = make([]byte, len(t.contents[0]))
-	result[3] = make([]byte, len(t.contents[0]))
+	result[rotate(1)] = make([]byte, len(t.contents[0]))
+	result[rotate(3)] = make([]byte, len(t.contents[0]))
 
 	for i, row := range t.contents {
-		result[3][i] = row[0]
-		result[1][i] = row[len(row)-1]
+		result[rotate(3)][len(t.contents)-1-i] = row[0]
+		result[rotate(1)][i] = row[len(row)-1]
 	}
 
 	return result
