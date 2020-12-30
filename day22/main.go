@@ -39,18 +39,7 @@ func main() {
 		d2.append(c)
 	}
 
-	for !d1.lose() && !d2.lose() {
-		c1 := d1.play()
-		c2 := d2.play()
-		if c1 < c2 {
-			d2.append(c2)
-			d2.append(c1)
-		} else {
-			d1.append(c1)
-			d1.append(c2)
-		}
-	}
-	fmt.Println(d1.score(), d2.score())
+	fmt.Println(game(&d1, &d2))
 }
 
 type deck struct {
@@ -79,11 +68,40 @@ func (d *deck) score() int {
 	return s
 }
 
+func (d *deck) count() int {
+	return len(d.cards)
+}
+
+func (d *deck) copy(i int) *deck {
+	return &deck{cards: append([]int(nil), d.cards[:i]...)}
+
+}
+
+func (d *deck) signature() string {
+	byt := make([]byte, len(d.cards))
+	for i, c := range d.cards {
+		byt[i] = byte(c)
+	}
+	return string(byt)
+}
+
 func game(d1, d2 *deck) (int, int) {
+	cache := make(map[string]struct{})
 	for !d1.lose() && !d2.lose() {
+		sig := d1.signature() + " " + d2.signature()
+		if _, ok := cache[sig]; ok {
+			return 1, 0
+		}
+		cache[sig] = struct{}{}
 		c1 := d1.play()
 		c2 := d2.play()
-		if c1 < c2 {
+		var s1, s2 int
+		if c1 <= d1.count() && c2 <= d2.count() {
+			s1, s2 = game(d1.copy(c1), d2.copy(c2))
+		} else {
+			s1, s2 = c1, c2
+		}
+		if s1 < s2 {
 			d2.append(c2)
 			d2.append(c1)
 		} else {
