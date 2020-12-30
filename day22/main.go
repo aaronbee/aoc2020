@@ -74,7 +74,6 @@ func (d *deck) count() int {
 
 func (d *deck) copy(i int) *deck {
 	return &deck{cards: append([]int(nil), d.cards[:i]...)}
-
 }
 
 func (d *deck) signature() string {
