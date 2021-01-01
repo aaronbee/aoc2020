@@ -8,18 +8,19 @@ import (
 
 func main() {
 	input := os.Args[1]
-	head := &cup{}
+	m := make([]cup, 1_000_001)
+	head := &m[0]
 	cur := head
-	m := make(map[int]*cup, 1_000_000)
 	for _, c := range []byte(input) {
-		cur.n = &cup{v: int(c - '0')}
+		v := int(c - '0')
+		cur.n = &m[v]
 		cur = cur.n
-		m[cur.v] = cur
+		cur.v = v
 	}
 	for i := 10; i <= 1_000_000; i++ {
-		cur.n = &cup{v: i}
+		cur.n = &m[i]
 		cur = cur.n
-		m[cur.v] = cur
+		cur.v = i
 	}
 	head = head.n
 	cur.n = head
@@ -61,7 +62,7 @@ func decr(i int) int {
 	return 1 + ((i - 2 + 1000000) % 1000000)
 }
 
-func game(cur *cup, m map[int]*cup) {
+func game(cur *cup, m []cup) {
 	for i := 0; i < 10_000_000; i++ {
 		dest := decr(cur.v)
 		three := pickup3(cur)
@@ -78,7 +79,7 @@ func game(cur *cup, m map[int]*cup) {
 			}
 		}
 
-		place3(m[dest], three)
+		place3(&m[dest], three)
 		cur = cur.n
 	}
 }
