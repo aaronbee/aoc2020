@@ -40,15 +40,18 @@ func main() {
 				}
 			}
 		}
-		m[c] = !m[c]
-	}
-	var count int
-	for _, v := range m {
-		if v {
-			count++
+		if m[c] {
+			delete(m, c)
+		} else {
+			m[c] = true
 		}
 	}
-	fmt.Println(count)
+	fmt.Println(len(m))
+
+	for i := 0; i < 100; i++ {
+		m = flip(m)
+	}
+	fmt.Println(len(m))
 }
 
 type coordinate struct {
@@ -61,3 +64,30 @@ func (c coordinate) ne() coordinate { return coordinate{c.x + (c.y & 1), c.y + 1
 func (c coordinate) nw() coordinate { return coordinate{c.x + (c.y & 1) - 1, c.y + 1} }
 func (c coordinate) se() coordinate { return coordinate{c.x + (c.y & 1), c.y - 1} }
 func (c coordinate) sw() coordinate { return coordinate{c.x + (c.y & 1) - 1, c.y - 1} }
+
+func bToI(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func flip(m map[coordinate]bool) map[coordinate]bool {
+	n := make(map[coordinate]bool)
+	for c := range m {
+		neighbors := bToI(m[c.e()]) + bToI(m[c.w()]) + bToI(m[c.ne()]) + bToI(m[c.nw()]) + bToI(m[c.se()]) + bToI(m[c.sw()])
+		if neighbors == 1 || neighbors == 2 {
+			n[c] = true
+		}
+		for _, c := range []coordinate{c.e(), c.w(), c.ne(), c.nw(), c.se(), c.sw()} {
+			if m[c] {
+				continue
+			}
+			neighbors := bToI(m[c.e()]) + bToI(m[c.w()]) + bToI(m[c.ne()]) + bToI(m[c.nw()]) + bToI(m[c.se()]) + bToI(m[c.sw()])
+			if neighbors == 2 {
+				n[c] = true
+			}
+		}
+	}
+	return n
+}
