@@ -68,6 +68,14 @@ func main() {
 		fmt.Println("Placed")
 		fmt.Println(row[0])
 		m.remove(row[0])
+		expectedNeighbors := 2
+		if i == sideLength-1 {
+			expectedNeighbors--
+		}
+		fmt.Println("neighs:", m.sidesWithNeighbors(row[0]))
+		// if neighs := ; len(neighs) != expectedNeighbors {
+		// 	panic(fmt.Errorf("unexpected number of neighbors %v", neighs))
+		// }
 		for j := range row[1:] {
 			fmt.Printf("placing %d,%d\n", j+1, i)
 			row[j+1] = m.getWithSide(row[j].sides()[1], 3)
@@ -89,7 +97,10 @@ func (m tilesBySide) insert(t *tile) {
 }
 
 func (m tilesBySide) remove(t *tile) {
-	for _, sd := range t.sides() {
+	cp := *t
+	cp.flip = false
+	cp.rotation = 0
+	for _, sd := range cp.sides() {
 		slc := m[string(sd)]
 		orig := len(slc)
 		for i, tt := range slc {
@@ -117,13 +128,12 @@ func (m tilesBySide) getWithSide(sd []byte, side int) *tile {
 	if len(cand1)+len(cand2) == 0 {
 		panic("tile not found")
 	}
+	flip(sd)
 	var t *tile
 	if len(cand1) == 1 {
 		t = cand1[0]
-		flip(sd)
 	} else if len(cand2) == 1 {
 		t = cand2[0]
-		t.flip = true
 	} else {
 		fmt.Printf("candidates for %s\n", string(sd))
 		fmt.Println("orig")
@@ -139,7 +149,20 @@ func (m tilesBySide) getWithSide(sd []byte, side int) *tile {
 
 	for i, sid := range t.sides() {
 		if bytes.Equal(sd, sid) {
-			t.rotation = side - i
+			t.rotation = side - i + 4
+			if !bytes.Equal(t.sides()[side], sd) {
+				panic(fmt.Errorf("rotation didn't work"))
+			}
+			return t
+		}
+	}
+	t.flip = true
+	for i, sid := range t.sides() {
+		if bytes.Equal(sd, sid) {
+			t.rotation = side - i + 4
+			if !bytes.Equal(t.sides()[side], sd) {
+				panic(fmt.Errorf("rotation didn't work"))
+			}
 			return t
 		}
 	}
@@ -189,19 +212,34 @@ func (t *tile) String() string {
 }
 
 func (t *tile) sides() [][]byte {
-	rotate := func(i int) int {
-		return (i + t.rotation + 4) % 4
-	}
 	result := make([][]byte, 4)
-	result[rotate(0)] = append([]byte(nil), t.contents[0]...)
-	result[rotate(2)] = append([]byte(nil), t.contents[len(t.contents)-1]...)
+	result[0] = append([]byte(nil), t.contents[0]...)
+	result[2] = append([]byte(nil), t.contents[len(t.contents)-1]...)
 
-	result[rotate(1)] = make([]byte, len(t.contents[0]))
-	result[rotate(3)] = make([]byte, len(t.contents[0]))
+	result[1] = make([]byte, len(t.contents[0]))
+	result[3] = make([]byte, len(t.contents[0]))
 
 	for i, row := range t.contents {
-		result[rotate(3)][len(t.contents)-1-i] = row[0]
-		result[rotate(1)][i] = row[len(row)-1]
+		result[3][i] = row[0]
+		result[1][i] = row[len(row)-1]
+	}
+	if t.flip {
+		flip(result[0])
+		flip(result[1])
+		flip(result[2])
+		flip(result[3])
+		result[1], result[3] = result[3], result[1]
+	}
+	switch t.rotation % 4 {
+	case 0:
+	case 1:
+		result[0], result[1], result[2], result[3] = result[3], result[0], result[1], result[2]
+	case 2:
+		result[0], result[1], result[2], result[3] = result[2], result[3], result[0], result[1]
+	case 3:
+		result[0], result[1], result[2], result[3] = result[1], result[2], result[3], result[0]
+	default:
+		panic(fmt.Errorf("invalid rotation %d", t.rotation))
 	}
 
 	return result
