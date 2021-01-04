@@ -128,10 +128,10 @@ func (m tilesBySide) getWithSide(sd []byte, side int) *tile {
 	if len(cand1)+len(cand2) == 0 {
 		panic("tile not found")
 	}
-	flip(sd)
 	var t *tile
 	if len(cand1) == 1 {
 		t = cand1[0]
+		t.flip = true
 	} else if len(cand2) == 1 {
 		t = cand2[0]
 	} else {
@@ -147,16 +147,6 @@ func (m tilesBySide) getWithSide(sd []byte, side int) *tile {
 		panic("too many tiles")
 	}
 
-	for i, sid := range t.sides() {
-		if bytes.Equal(sd, sid) {
-			t.rotation = side - i + 4
-			if !bytes.Equal(t.sides()[side], sd) {
-				panic(fmt.Errorf("rotation didn't work"))
-			}
-			return t
-		}
-	}
-	t.flip = true
 	for i, sid := range t.sides() {
 		if bytes.Equal(sd, sid) {
 			t.rotation = side - i + 4
@@ -215,12 +205,13 @@ func (t *tile) sides() [][]byte {
 	result := make([][]byte, 4)
 	result[0] = append([]byte(nil), t.contents[0]...)
 	result[2] = append([]byte(nil), t.contents[len(t.contents)-1]...)
+	flip(result[2])
 
 	result[1] = make([]byte, len(t.contents[0]))
 	result[3] = make([]byte, len(t.contents[0]))
 
 	for i, row := range t.contents {
-		result[3][i] = row[0]
+		result[3][len(t.contents)-1-i] = row[0]
 		result[1][i] = row[len(row)-1]
 	}
 	if t.flip {
