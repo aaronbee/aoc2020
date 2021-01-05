@@ -53,10 +53,8 @@ func main() {
 		break
 	}
 	sideLength := int(math.Sqrt(float64(len(tiles))))
-	fmt.Println("tiles", len(tiles), "sideLength", sideLength)
 	arranged := make([][]*tile, sideLength)
 	for i := range arranged {
-		fmt.Printf("placing %d,%d\n", 0, i)
 		arranged[i] = make([]*tile, sideLength)
 		row := arranged[i]
 		if i == 0 {
@@ -65,26 +63,88 @@ func main() {
 			above := arranged[i-1][0]
 			row[0] = m.getWithSide(above.sides()[2], 0)
 		}
-		fmt.Println("Placed")
-		fmt.Println(row[0])
 		m.remove(row[0])
+		row[0].applytransformations()
 		expectedNeighbors := 2
 		if i == sideLength-1 {
 			expectedNeighbors--
 		}
-		fmt.Println("neighs:", m.sidesWithNeighbors(row[0]))
-		// if neighs := ; len(neighs) != expectedNeighbors {
-		// 	panic(fmt.Errorf("unexpected number of neighbors %v", neighs))
-		// }
 		for j := range row[1:] {
-			fmt.Printf("placing %d,%d\n", j+1, i)
 			row[j+1] = m.getWithSide(row[j].sides()[1], 3)
 			m.remove(row[j+1])
-			fmt.Println("Placed")
-			fmt.Println(row[j+1])
+			row[j+1].applytransformations()
 		}
 	}
-	fmt.Println("Placed all tiles:", len(m))
+
+	var img [][]byte
+	for _, row := range arranged {
+		n := len(row[0].contents)
+		for i := 1; i < n-1; i++ {
+			img = append(img, nil)
+			for _, t := range row {
+				part := t.contents[i][1 : n-1]
+				img[len(img)-1] = append(img[len(img)-1], part...)
+			}
+		}
+	}
+
+	//                   #
+	// #    ##    ##    ###
+	//  #  #  #  #  #  #
+	pattern := [][]int{
+		{18},
+		{0, 5, 6, 11, 12, 17, 18, 19},
+		{1, 4, 7, 10, 13, 16},
+	}
+	var found bool
+
+	for r := 0; r < 8; r++ {
+		for i := 0; i < len(img)-2; i++ {
+			for j := 0; j < len(img[i])-19; j++ {
+				if match(img[i][j:], pattern[0]) &&
+					match(img[i+1][j:], pattern[1]) &&
+					match(img[i+2][j:], pattern[2]) {
+					found = true
+					mark(img[i][j:], pattern[0])
+					mark(img[i+1][j:], pattern[1])
+					mark(img[i+2][j:], pattern[2])
+				}
+			}
+		}
+		if found {
+			break
+		}
+		img = rotate(img, 1)
+		if r == 3 {
+			for i := range img {
+				flip(img[i])
+			}
+		}
+	}
+
+	for _, row := range img {
+		fmt.Println(string(row))
+	}
+	var count int
+	for _, row := range img {
+		count += bytes.Count(row, []byte{'#'})
+	}
+	fmt.Println(count)
+}
+
+func match(row []byte, pattern []int) bool {
+	for _, i := range pattern {
+		if row[i] != '#' {
+			return false
+		}
+	}
+	return true
+}
+
+func mark(row []byte, pattern []int) {
+	for _, i := range pattern {
+		row[i] = 'O'
+	}
 }
 
 type tilesBySide map[string][]*tile
@@ -236,8 +296,59 @@ func (t *tile) sides() [][]byte {
 	return result
 }
 
+func (t *tile) applytransformations() {
+	if t.flip {
+		for i := range t.contents {
+			flip(t.contents[i])
+		}
+		t.flip = false
+	}
+	t.contents = rotate(t.contents, t.rotation%4)
+
+	t.rotation = 0
+}
+
 func flip(b []byte) {
 	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
 		b[i], b[j] = b[j], b[i]
 	}
+}
+
+func rotate(a [][]byte, c int) [][]byte {
+	switch c {
+	case 0:
+		return a
+	case 1:
+		n := len(a)
+		m := make([][]byte, n)
+		for i := range a {
+			m[i] = make([]byte, n)
+			for j := range a {
+				if i == 84 || j == 84 || n-j-1 == 84 {
+
+				}
+				m[i][j] = a[n-j-1][i]
+			}
+		}
+		return m
+	case 2:
+		for i := range a {
+			flip(a[i])
+		}
+		for i, j := 0, len(a)-1; i < j; i, j = i+1, j-1 {
+			a[i], a[j] = a[j], a[i]
+		}
+		return a
+	case 3:
+		n := len(a)
+		m := make([][]byte, n)
+		for i := range a {
+			m[i] = make([]byte, n)
+			for j := range a {
+				m[i][j] = a[j][n-i-1]
+			}
+		}
+		return m
+	}
+	panic("unreachable")
 }
