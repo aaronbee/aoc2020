@@ -41,12 +41,12 @@ func main() {
 		}
 		corner = t
 		if neighs[0] == 0 && neighs[1] == 1 {
-			t.rotation = 1
+			t.rotate(1)
 		} else if neighs[0] == 1 && neighs[1] == 2 {
 		} else if neighs[0] == 2 && neighs[1] == 3 {
-			t.rotation = 3
+			t.rotate(3)
 		} else if neighs[0] == 0 && neighs[1] == 3 {
-			t.rotation = 2
+			t.rotate(2)
 		} else {
 			panic("huh")
 		}
@@ -64,7 +64,6 @@ func main() {
 			row[0] = m.getWithSide(above.sides()[2], 0)
 		}
 		m.remove(row[0])
-		row[0].applytransformations()
 		expectedNeighbors := 2
 		if i == sideLength-1 {
 			expectedNeighbors--
@@ -72,7 +71,6 @@ func main() {
 		for j := range row[1:] {
 			row[j+1] = m.getWithSide(row[j].sides()[1], 3)
 			m.remove(row[j+1])
-			row[j+1].applytransformations()
 		}
 	}
 
@@ -100,7 +98,7 @@ func main() {
 
 	for r := 0; r < 8; r++ {
 		for i := 0; i < len(img)-2; i++ {
-			for j := 0; j < len(img[i])-19; j++ {
+			for j := 0; j < len(img[i])-20; j++ {
 				if match(img[i][j:], pattern[0]) &&
 					match(img[i+1][j:], pattern[1]) &&
 					match(img[i+2][j:], pattern[2]) {
@@ -157,10 +155,10 @@ func (m tilesBySide) insert(t *tile) {
 }
 
 func (m tilesBySide) remove(t *tile) {
-	cp := *t
-	cp.flip = false
-	cp.rotation = 0
-	for _, sd := range cp.sides() {
+	for _, sd := range t.sides() {
+		if t.flipped {
+			flip(sd)
+		}
 		slc := m[string(sd)]
 		orig := len(slc)
 		for i, tt := range slc {
@@ -187,38 +185,22 @@ func (m tilesBySide) getWithSide(sd []byte, side int) *tile {
 	cand2 := m[string(sd)]
 	if len(cand1)+len(cand2) == 0 {
 		panic("tile not found")
+	} else if len(cand1)+len(cand2) > 1 {
+		panic("too many tiles")
 	}
 	var t *tile
 	if len(cand1) == 1 {
 		t = cand1[0]
-		t.flip = true
-	} else if len(cand2) == 1 {
-		t = cand2[0]
+		t.flip()
 	} else {
-		fmt.Printf("candidates for %s\n", string(sd))
-		fmt.Println("orig")
-		for _, t := range cand1 {
-			fmt.Println(t)
-		}
-		fmt.Println("flipped")
-		for _, t := range cand1 {
-			fmt.Println(t)
-		}
-		panic("too many tiles")
+		t = cand2[0]
 	}
 
 	for i, sid := range t.sides() {
 		if bytes.Equal(sd, sid) {
-			t.rotation = side - i + 4
-			if !bytes.Equal(t.sides()[side], sd) {
-				panic(fmt.Errorf("rotation didn't work"))
-			}
+			t.rotate((side - i + 4) % 4)
 			return t
 		}
-	}
-	fmt.Println("looking for", string(sd))
-	for _, sd := range t.sides() {
-		fmt.Println(string(sd))
 	}
 	panic("didn't find matching side")
 }
@@ -247,8 +229,7 @@ outer:
 type tile struct {
 	id       int
 	contents [][]byte
-	rotation int
-	flip     bool
+	flipped  bool
 }
 
 func (t *tile) String() string {
@@ -259,6 +240,17 @@ func (t *tile) String() string {
 		buf.WriteByte('\n')
 	}
 	return buf.String()
+}
+
+func (t *tile) rotate(r int) {
+	t.contents = rotate(t.contents, r)
+}
+
+func (t *tile) flip() {
+	t.flipped = !t.flipped
+	for i := range t.contents {
+		flip(t.contents[i])
+	}
 }
 
 func (t *tile) sides() [][]byte {
@@ -274,38 +266,7 @@ func (t *tile) sides() [][]byte {
 		result[3][len(t.contents)-1-i] = row[0]
 		result[1][i] = row[len(row)-1]
 	}
-	if t.flip {
-		flip(result[0])
-		flip(result[1])
-		flip(result[2])
-		flip(result[3])
-		result[1], result[3] = result[3], result[1]
-	}
-	switch t.rotation % 4 {
-	case 0:
-	case 1:
-		result[0], result[1], result[2], result[3] = result[3], result[0], result[1], result[2]
-	case 2:
-		result[0], result[1], result[2], result[3] = result[2], result[3], result[0], result[1]
-	case 3:
-		result[0], result[1], result[2], result[3] = result[1], result[2], result[3], result[0]
-	default:
-		panic(fmt.Errorf("invalid rotation %d", t.rotation))
-	}
-
 	return result
-}
-
-func (t *tile) applytransformations() {
-	if t.flip {
-		for i := range t.contents {
-			flip(t.contents[i])
-		}
-		t.flip = false
-	}
-	t.contents = rotate(t.contents, t.rotation%4)
-
-	t.rotation = 0
 }
 
 func flip(b []byte) {
